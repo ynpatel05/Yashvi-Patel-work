@@ -1,0 +1,409 @@
+---
+title: "MA22019 2025 - Coursework 1"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+## Generative AI statement
+
+I used AI to find the functions:
+
+- geom_bar(stat = "identity") so I could use the proportions I calculated, when plotting bar charts
+- theme(strip.text) to find a way to make my facet_wrap() heading bigger when necessary.
+- pmin(Coal,coal_limit) to help me find an easy way to only take the coal limit if coal exceeded 300000.
+
+I used AI to help me research what energy is used for and how energy consumption can be limited in a country.
+
+## Question 1
+
+*Several areas of Utopia are historically suffering from poor air quality. The society "Clean Air for Utopia" has measured PM10 levels (in* $\mu g/m^3$) at six sites across Utopia on a daily basis for several years. They now ask you to perform an analysis which explores how the six sites compare in terms of the recorded PM10 levels.
+
+*The society is further interested in identifying factors which may explain differences across the sites. They are aware that their current data does not allow them to make such conclusions. You are thus asked to suggest other data or information the society may want to collect so that they can address this question in the future.*
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Load relevant packages
+
+```{r, warning=FALSE, message=FALSE}
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+library(patchwork)
+library(tidyr)
+```
+
+Read the file, and convert the Date into a year, month, day format.
+
+```{r}
+PM10 <- read.csv("PM10.csv")
+PM10$Date <- ymd(PM10$Date)
+```
+
+Apply pivot_longer() to take all the Site 1-6 columns and merge them into a single column, and give them a corresponding separate column with their PM10 values. Also check to see if there are any missing values.
+```{r}
+Reorganised_PMlevels <- pivot_longer(PM10, cols = starts_with("Site"),
+                                     names_to = "Site",
+                                     values_to = "PM10")
+any(is.na(Reorganised_PMlevels))
+```
+
+## The first factor to explore is how the PM10 levels have changed over time at each site.
+
+A way to do this is by plotting line plots for each site, and using the facet_wrap() function so that each plot is using the same axis so it is easier to draw comparisons.
+
+```{r, fig.align = 'center', fig.height= 12, fig.width= 25, message=FALSE, warning=FALSE}
+ggplot(Reorganised_PMlevels, aes(x = Date, y = PM10)) +
+  geom_line(aes(color = Site), na.rm = TRUE) + 
+  facet_wrap(~Site) + 
+  geom_smooth(color = "black") +
+  labs(title = "PM10 levels 2015 - 2024", x = "Date", y = "PM10 levels (µg/m³)") +
+  theme( plot.title = element_text(size = 50),
+    axis.text = element_text(size = 35),
+    axis.title = element_text(size = 45), 
+    legend.text = element_text(size = 40),
+    legend.title = element_text(size = 45))
+```
+
+- From the line graphs above, one can see that the general pattern for all sites is a downward trajectory, showing a decrease in PM10 levels across the years, implying an overall improvement in air quality across all sites.
+
+- Sites 1, 3, 4 and 5 appear to have the sharpest, yet still steady decrease in PM10 levels, with site 2 and 6 appearing to have a much slower, gradual decrease in PM10 levels.
+
+- The PM10 levels across Sites 1,3,4 and 5 have high variability, with peaks and dips appearing to occur at regular intervals, implying there may be a seasonal trend.
+
+## The next factor to consider, is how the sites compare in terms of their spread and median PM10 levels. 
+
+A nice way to do this is using a box plot.
+```{r, fig.align = 'center', fig.height= 6, fig.width= 13}
+ggplot(Reorganised_PMlevels, aes(x = reorder(Site, PM10, median, na.rm = TRUE), y = PM10))+
+geom_boxplot(aes(color = Site), na.rm = TRUE) +
+labs(title = "PM10 levels from 2015 to 2024 across the six sites",
+     x = "Site", y = "PM10 level (µg/m³)")+
+  theme( plot.title = element_text(size = 30),
+    axis.text = element_text(size = 25),
+    axis.title = element_text(size = 30), 
+    legend.text = element_text(size = 20),
+    legend.title = element_text(size = 30))
+```
+
+It is nice to use figures when making comparisons.
+```{r}
+PM10_details <- Reorganised_PMlevels %>%
+  group_by(Site) %>%
+  summarise(
+    median_PM10 = median(PM10, na.rm = TRUE),
+    mean_PM10 = mean(PM10, na.rm = TRUE),
+    IQR_PM10 = IQR(PM10, na.rm = TRUE)  )
+PM10_details
+```
+
+- From the box plot, and table above, Sites 1, 3, 4 and 5 have higher median PM10 levels than Sites 2 and 6. The box plot above is ordered from lowest median PM10 level to highest.
+
+- Site 5 recorded the highest median (56.85 µg/m³) and mean (56.89 µg/m³) PM10 levels,indicating Site 5 had the highest PM10 levels overall (worst air quality). Site 6 had the lowest median (18.50 µg/m³) and mean (18.41 µg/m³) , indicating Site 6 had the lowest PM10 levels overall (best air quality).
+
+- Sites 1, 3, 4, 5 have larger interquartile ranges (greater variability in PM10 levels) compared to Sites 6, 2.
+
+- Site 5 had the largest interquartile range of 14.80 µg/m³ (longest box), indicating high PM10 fluctuations- consistent with the line plot. Site 6 had the smallest interquartile range of 1.90 µg/m³ (shortest box) and no outliers, showing that the PM10 levels were consistently low (consistent with the line plot above).
+
+
+Overall, PM10 levels have declined across all sites, indicating improving air quality. However, Sites 1, 3, 4, and 5 had the higher median PM10 levels, greater variability and a faster decline, while Sites 2 and 6 maintained lower median PM10 levels with a slower decline.
+
+More details about the sites are needed to explain the reasoning behind their PM10 levels such as weather, and land use.
+
+Potential influences on PM10 levels:
+
+Urban vs Rural: A site (maybe Site 5) near a motorway or Urban area is more likely to have high PM10 levels and variability in a day from vehicle exhausts and rush hour traffic, than a site in a rural area, where there is lots of vegetation and little urban activity (maybe Site 1).The society could consider creating an additional variable "urban", where they collect data measuring the extent of urbanisation at each site, from a scale 1(least urbanisation) to 5(most urbanisation).
+
+Weather and seasonal trends: A site with high rainfall (maybe Site 2) may have lower PM10 levels than a drier site, as precipitation washes airborne pollutants out of the air. Precipitation may fluctuate seasonally, with lower PM10 levels during wetter seasons, and higher levels during dry months. The society could measure daily precipitation for each Site.
+
+Airport zones: (maybe site 4) may have high PM10 levels and a medium spread of PM10 levels, as planes pollute the air from their engines, and have peak take off hours yet still operate daily. Number of airports within a 12 mile radius of the site could be counted. 
+
+## Question 2a
+
+*Which features regarding energy consumption and efficiency does the government of Utopia need to take into account when designing their new energy strategy?*
+
+### Answer
+
+Reads the files
+```{r}
+Energy_consumption <- read.csv("Utopia_Energy_Consumption.csv")
+Energy_efficiency <- read.csv("Utopia_Energy_Efficiency.csv")
+```
+
+## Consumption
+
+Converts the data into year, month, day, hour, minute, second format.
+```{r}
+Energy_consumption$Date = ymd_hms(Energy_consumption$Date)
+```
+
+## The first feature to explore is how the daily energy consumption in Utopia has changed over the years in order to find a general trend. 
+
+To do this, firstly a total energy consumption for each day needs to be calculated. Using geom_smooth() will allow any general trend to be seen more clearly.
+```{r, message = FALSE}
+Consumption_daily <- Energy_consumption %>%
+  group_by(Day = date(Date)) %>%
+  summarise(Total_daily_consumption = sum(Demand))
+ggplot(Consumption_daily, aes(x = Day, y = Total_daily_consumption)) +
+  geom_smooth() +
+  labs(title = "Daily energy consumption", x = "Day", y = "Energy (MWh)")
+```
+
+From the plot above, daily energy consumption in Utopia was unstable between 2012 and the end of 2017, but from 2018 to the start of 2024 there was a steady decline. Recently in 2024, there are signs consumption is on the rise. The government should investigate the factors driving these trends- particularly the decrease from 2018-2024, and then the increase in 2024, to identify the cause, and address a way to restrict them in the new energy strategy.
+
+## The next feature to explore is how energy consumption changes throughout a day.
+
+To do this, the mean energy consumption at each hour of the day across the years is calculated.
+```{r}
+complete_hourly_consumption <- Energy_consumption %>%
+  group_by(hour = hour(Date)) %>%
+  summarise(complete_consumption_per_hour = mean(Demand), .groups = "drop")
+```
+
+A line plot, and point plot is a nice way to seek any trends there may be.
+```{r, warning = FALSE, message = FALSE}
+ggplot(complete_hourly_consumption, aes(x = hour, y = complete_consumption_per_hour)) + 
+  geom_line(color="lightblue",size = 2, na.rm = TRUE) +
+  geom_point(col="red") +
+  labs(title = "Average energy consumption across a day from 2012 to 2024",
+       x = "Time of day (hr)",
+       y = " Energy (MWh)")
+```
+
+The government, in their new strategy scheme needs to understand how energy is used throughout the day and when.
+
+- Peak consumption (6pm-9pm): consumption is around 16800MWh. This period likely corresponds to darkness and dinner time, leading to high household energy consumption. The government should consider that during these hours, there may be a high reliance on fossil fuels like coal to meet the high demand in energy, and that also households may not be the most energy efficient (will be discussed later).
+
+- Lowest energy consumption (3am-5am): consumption is between 13000 and 13500 MWh, most likely when majority of the population is asleep, hence it is not the most important time for the government to focus on, but could be an opportunity for storing renewable energy for later use.
+
+- Rapid consumption increase (5am-8am): likely due to people awakening, similar to peak hours, there is likely high household activity, hence the government's scheme should focus on methods to reduce the rate of increase in consumption between these hours.
+
+- Stability (midday-5pm): the average energy consumption remains fairly consistent at around 16500 MWh, likely from energy use at workplaces. This is still a high value, hence the scheme should consider that these buildings may be energy inefficient.
+
+## Efficiency
+
+Firstly, we want to use the pivot_longer() function to take the two separate ERC columns, and turn them into 1 assessed year column, and create a new column which has their efficient ratings in, to make the data more modifiable. Then check for missing data.
+```{r}
+Efficiency <- Energy_efficiency %>%
+  pivot_longer(cols = c(ERC2014, ERC2018), names_to = "Assessed_Year", 
+               values_to = "Efficiency_Rating") %>%
+  filter(!is.na(Efficiency_Rating))
+```
+
+## The first feature to explore, regarding efficiency, is how the different property types compare in terms of their efficiency ratings.
+
+Firstly, the proportions of efficiency ratings for each group is calculated, and stored in Building_efficiency.
+```{r}
+Building_efficiency <- Efficiency %>%
+  group_by(Type, Assessed_Year, Efficiency_Rating) %>%
+  summarise(count = n(), .groups= "drop") %>%
+  group_by(Type,Assessed_Year)%>%
+  mutate(count2=sum(count),.groups="drop")%>%
+  mutate(proportions = count/count2)
+```
+
+A bar plot is a nice plot to use in order to draw comparisons.
+```{r, fig.align = 'center', fig.height= 7, fig.width= 13}
+ggplot(Building_efficiency, aes(x = Type, y = proportions, fill = Efficiency_Rating)) +
+geom_bar(stat = "identity", position = "dodge") +
+facet_wrap(~Assessed_Year) +
+labs(title = "Proportion of efficency ratings of each building type",
+     x = "Building type",
+     y = "Proportion") +
+  theme( plot.title = element_text(size = 25),
+    axis.text = element_text(size = 15),
+    axis.title = element_text(size = 20), 
+    legend.text = element_text(size = 15),
+    legend.title = element_text(size = 15),
+    strip.text = element_text(size = 20))
+```
+
+- From the 2018 assessment: proportioned to each property type, flats were the most energy efficient building type, with the highest proportion of Grade A ( approx 0.12) and B (approx 0.67) properties, and lowest proportion of Grade C (approx 0.21) properties. Terraced properties had the worst overall energy efficiency, with the lowest proportion of A grade (approx 0.08) properties and highest proportion of C grade (approx 0.34) properties. 
+
+- 2014 assessment vs 2018 assessment: There was a slight increase in the proportion of grade A buildings for all property types (e.g. Detached 0.08 --\> 0.095), and a slight decrease in the proportion of grade C and B buildings for all property types, but these changes are all very small, indicating minimal effort has been made to improve energy efficiency in properties. As part of the new's scheme, the government needs to prioritise improving efficiency in less efficient properties, particularly by enforcing strict building efficiency standards.
+
+## It would be useful to see the proportions of each building type, to see the extent of influence the efficiency of each property type has.
+
+The proportion of each building type examined in the survey is calculated, and stored in Building_proportions
+```{r, fig.align = 'center', fig.height= 7, fig.width= 13}
+Building_proportions <- Efficiency %>%
+  group_by(Assessed_Year, Type)%>%
+  summarise(count = n(), .groups = "drop") %>%
+  group_by(Assessed_Year) %>%
+  mutate(proportions = count/sum(count))
+```
+
+A bar plot is a nice way to draw comparisons.
+```{r, fig.align = 'center', fig.height= 7, fig.width= 13}
+ggplot(Building_proportions, aes(x = Type, y = proportions)) +
+  geom_bar(stat = "identity", aes(fill = Type)) +
+  facet_wrap(~Assessed_Year) +
+  labs(title = "Proportion of each building type", x = "Building type", y = "Proportion")+ 
+  theme( plot.title = element_text(size = 25),
+    axis.text = element_text(size = 15),
+    axis.title = element_text(size = 20), 
+    legend.text = element_text(size = 15),
+    legend.title = element_text(size = 15),
+    strip.text = element_text(size = 20))
+```
+Assuming that the assessed properties were chosen randomly in the survey, and are representative of the properties across Utopia, it is evident that there is a significantly higher proportion of terraced properties than any other property type in both 2014 and 2018. In 2018 Terraced properties made up more than half of all property types, while Flats only made up 21%, despite being the most energy efficient. This highlights the urgency needed for the government to prioritise energy efficiency improvements in terraced properties within their strategy. Since they represent the largest share of properties, even small efficiency improvements in terraced properties could lead to significant nationwide energy savings.
+
+
+## The next feature to explore is if there is a link between the year a property was built and its efficiency rating
+
+A box plot is a nice way to do this.
+```{r}
+ggplot(Efficiency, aes(x = Efficiency_Rating, y = Year, fill = Efficiency_Rating)) + 
+  geom_boxplot(na.rm = TRUE) +
+  labs(title = "Relationship between energy efficiency rating & year property was built",
+       x = "Efficiency Rating",
+       y = "Year built") 
+```
+In general, the properties built earlier tend to have worse efficiency ratings compared to those built later. Grade C properties have a median construction year of about 1951, whereas Grade A properties have a median construction year of about 2005. It should be noted that Grade B and C buildings have a larger interquartile range (there are some new buildings that are less efficient), but majority are not. Despite Grade A buildings having a smaller interquartile range, there are still a few older outliers, hence age does not completely determine efficiency- but is still a factor to consider. The government should focus their attention on improving energy efficiency in properties built earlier when designing their new energy strategy.
+
+Key Considerations for the Government’s Energy Strategy:
+
+- Property Type : Flats are the most energy efficient, while terraced houses are the least.
+
+- Property age: Properties built earlier tend to be less energy efficient than more modern ones.
+
+- Extent of influence: Since terraced properties make up more than half of all buildings surveyed, improving their efficiency should be a top priority. Even small improvements could lead to significant national energy savings.
+
+- Limited Progress (2014–2018): The slight increase in Grade A properties and decrease in Grades B and C indicates some improvements were made, but progress has been slow. More effort is needed, and the government should consider that their improvement techniques in the past may not have been the most effective.
+
+## Question 2b
+
+*Energy in Utopia is produced using four sources: several solar farms, wind farms, coal-fired power stations and a nuclear power station. Explore how much renewable energy sources, solar and wind, have been contributing to the energy production.*
+
+*The current capacity for energy production using coal is 500,000 MWh per day. An advisor to the government of Utopia suggests to reduce this capacity by 40% and to close the nuclear power station within the next two years. The latter is motivated by the country's difficulty to find a secure ultimate disposal place for the nuclear waste. What would be the impact of this plan on the country's capacity to meet its energy demand? Clearly state the assumptions underlying your approach.*
+
+*Do you have any suggestions on how this plan may be improved? In your discussion, please take into account that Utopia is unable to import energy from abroad and to immediately build new solar and wind farms.*
+
+### Answer
+
+Reads the files, converts the date into a year, month, day format, and checks if there are missing values.
+```{r}
+Production <- read.csv("Utopia_Energy_Production.csv")
+Production$Day = ymd(Production$Day)
+any(is.na(Production))
+```
+
+## To explore how the renewable resources contribute to Utopia's energy production, the first factor to consider is how the contribution of renewable energy has changed over time.
+
+The proportion of renewable energy contributed each day needs to be calculated.
+```{r}
+Energy_Production <- Production%>%
+  group_by(Day) %>%
+  mutate(Daily_total = sum(Solar, Wind, Coal, Nuclear)) %>%
+  mutate(Renewable_proportion = sum(Solar, Wind)/Daily_total)
+```
+
+A line plot allows me to see how the reliance on renewable energy has changed over time
+```{r, message=FALSE}
+ggplot(Energy_Production, aes(x = Day, y = Renewable_proportion)) +
+  geom_line(col = "lightblue") +
+  geom_smooth(col = "red") +
+  labs(title = "The proportion renewable energy contributes to energy production",
+       x = "Day",
+       y = "Proportion")
+```
+
+From this line plot, one can see that the contribution of renewable energy to energy production in Utopia has been relatively low between 2012 and 2016 (making up a proportion of roughly 0.17 of energy production). But from 2016, has been steadily increasing (roughly 0.45 by the end of 2024). The upward trajectory suggests the contribution of renewable energy to energy production in Utopia will continue to increase. Despite this progress, the renewable energy contribution has been less than 0.5 over the years, showing that non renewable energy has dominated over renewable.
+
+## The next factor to explore is if the contribution of solar, and wind energy changes during the year.
+
+Works out the average proportion of solar energy, and wind energy contributing each month. 
+```{r}
+Seasonal_trend <- Energy_Production %>%
+  group_by(Month = month(Day)) %>%
+  summarise(Solar_proportion = mean(Solar /Daily_total),
+            Wind_proportion = mean(Wind / Daily_total))
+```
+
+2 separate plots showing the contribution of solar and wind energy in a year on average . They are side by side so that the general pattern can be compared.
+```{r, fig.align = 'center', fig.height= 5, fig.width= 10, message=FALSE}
+g1 <- ggplot(Seasonal_trend, aes(x = Month, y = Solar_proportion)) + 
+  geom_smooth() +
+  labs(title = "Solar energy contribution by month", x = "Month", y = "Proportion") +
+  theme(plot.title = element_text(size = 15),
+    axis.text = element_text(size = 15),
+    axis.title = element_text(size = 15))
+g2 <- ggplot(Seasonal_trend, aes(x = Month, y = Wind_proportion)) +
+  geom_smooth() +
+  labs(title = "Wind energy contribution by month", x = "Month", y = "Proportion") +
+  theme(plot.title = element_text(size = 15),
+    axis.text = element_text(size = 13),
+    axis.title = element_text(size = 15))
+g1 + g2
+```
+Overall, Solar energy contributes slightly more to Utopia's energy supply than Wind, but both sources follow similar seasonal trends. Solar energy contribution peaks between March and August, while wind energy shows 2 peak periods: March to June, and August to November. This suggests Utopia's renewable energy supply is influenced by seasonal weather, with higher solar contribution in sunnier months, and higher wind contributions in windier months.
+
+## To see the impact of the advisors plans, first one should consider what the reliance on nuclear energy has been like over the years.
+
+Calculates the proportion of energy, nuclear contributes.
+```{r}
+Nuclear_proportions <- Energy_Production %>%
+  mutate(Nuclear_proportions = Nuclear/Daily_total)
+```
+
+A line plot is a nice way to see how the contribution of nuclear energy has changed over time
+```{r, message=FALSE}
+ggplot(Nuclear_proportions, aes(x = Day, y = Nuclear_proportions)) +
+  geom_line(col = "lightblue") +
+  geom_smooth(col = "red") +
+  labs(title = "The proportion nuclear energy contributes to energy production",
+       x = "Day",
+       y = "Proportion")
+```
+The contribution of nuclear energy has remained small but increased slightly between 2012 and 2024, from about 0.025 to 0.03. Even with fluctuations, this suggests nuclear energy has not been a major contributor to energy production, so reducing it should not have a huge impact on the countries requirement to meet its demand.
+
+## The next part of the advisors plan to consider is the impact limiting the coal has. Looking at previous coal contribution can help explore the future influence.
+
+Impliments the advisors limitations in the past by capping the coal production by 40% and reducing nuclear production to 0. The new total energy produced is calculated. 
+```{r}
+coal_limit = 0.6*500000
+New_production <- Production %>%
+  mutate(Nuclear = 0,
+            Coal = pmin(Coal, coal_limit),
+         total = Solar + Wind + Nuclear + Coal)
+```
+
+A comparison of the old coal production to the new production. Taking the smooth of a line plot is a nice way to draw a general comparison over the years.
+```{r, message=FALSE}
+ggplot() +
+  geom_smooth(data = New_production, aes(x = Day, y = Coal, colour = "Limited Coal")) +
+  geom_smooth(data = Energy_Production, aes(x = Day, y = Coal, colour = "Original Coal")) +
+  labs(title = "Coal energy production vs Coal energy production 40% capped", 
+       x = "Year",
+       y = "Energy (MWh)") +
+  theme(axis.title = element_text(size = 15) )
+```
+From here, one can see that reducing the coal capacity by 40% would have had a significant impact 2012-2018 , but 2019-2024, coal production was decreasing rapidly, corresponding to the shift towards renewable energy sources. 
+2023-2024 the coal limitation would not have had much of an affect, seeing that the energy produced appears to be similar to had there been no limitation, but 2024-2025 shows the original coal production starts decreasing at a slower rate than the limited coal production, indicating the advisors plan is having an impact in reducing coal production quickly, and if the limited coal production trend were to continue, in the next few years, coal production could drop to 0.
+
+## In order to draw how stable this plan would be, a comparison of no nuclear energy and coal capped by 40% combined needs to be made to the country's consumption.
+
+A plot comparing the production with the limits, to the countries consumption in the past.
+```{r, message=FALSE}
+ggplot() +
+  geom_smooth(data = New_production, aes(x = Day, y = total, color = "Production")) +
+  geom_smooth(data = Consumption_daily, aes(x = Day, y = Total_daily_consumption, 
+                                            color = "Consumption")) +
+  labs(title = "Energy Production (changed) vs Energy Consumption over the years",
+       x = "Date", 
+       y = "Energy (MWh)") 
+```
+From this graph one can see that if the advisor's change had been done in the past, before 2019, energy demand would have exceeded production, however 2019 onward, the production would have exceeded consumption. From 2024 onwards, a concerning trend emerges, where production continues to decrease, while consumption increases. If this pattern continues, consumption would exceed production, i.e.the country would not meet its energy demand. The new scheme needs to consider ways to stop the consumption from increasing quickly (especially if the reliance on coal wants to eventually be removed), as energy cannot be imported from abroad, and new solar and wind farms cannot be built immediately.
+
+Improvements to plan:
+
+- Gradually reduce coal capacity by 40% rather than straight away: This way the government has time to reduce the countries energy consumption
+
+- Educate: spreading awareness about energy waste, and why the government wants to transition to net zero could help to convince the population to stop energy waste (e.g. turn off lights etc.)
+
+- Fees: A fee could be charged for high energy households, forcing people to reduce their energy consumption.
+
+- Store excess energy: On days where  production has exceeded  demand, the excess energy can be stored for peak hours. The government should also consider the seasonal trends when planning energy storage to ensure there is enough energy supply throughout the year.
